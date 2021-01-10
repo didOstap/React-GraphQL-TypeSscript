@@ -4,22 +4,22 @@ import {Box, Button} from '@chakra-ui/react';
 
 import Wrapper from '../components/Wrapper';
 import InputField from "../components/InputField";
-import {useRegisterMutation} from "../generated/graphql";
+import {useLoginMutation} from "../generated/graphql";
 import {toErrorMap} from "../utils/toErrorMap";
 import {useRouter} from "next/router";
 
-const Register: React.FC<{}> = () => {
+const Login: React.FC<{}> = () => {
     const router = useRouter();
-    const [, register] = useRegisterMutation();
+    const [, login] = useLoginMutation();
 
     const handleRegister = useCallback(async (values, {setErrors}) => {
-        const response = await register(values);
-        if (response.data?.register.errors) {
-            setErrors(toErrorMap(response.data.register.errors));
-        } else if(response.data?.register.user) {
+        const response = await login(values);
+        if (response.data?.login.errors) {
+            setErrors(toErrorMap(response.data.login.errors));
+        } else if(response.data?.login.user) {
             await router.push('/');
         }
-    }, [register, router]);
+    }, [login, router]);
 
     return (
         <Wrapper variant="small">
@@ -48,7 +48,7 @@ const Register: React.FC<{}> = () => {
                             colorScheme="teal"
                             isLoading={isSubmitting}
                         >
-                            Register
+                            Login
                         </Button>
                     </Form>
                 )}
@@ -57,4 +57,4 @@ const Register: React.FC<{}> = () => {
     )
 }
 
-export default Register;
+export default Login;
