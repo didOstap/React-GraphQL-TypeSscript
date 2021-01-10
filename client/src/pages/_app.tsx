@@ -1,12 +1,12 @@
 import {ChakraProvider} from '@chakra-ui/react'
 import {AppProps} from 'next/app'
 import {createClient, dedupExchange, fetchExchange, Provider} from "urql"
-import {cacheExchange, Cache, QueryInput} from "@urql/exchange-graphcache";
+import {Cache, cacheExchange, QueryInput} from "@urql/exchange-graphcache";
 
 import theme from '../theme'
-import {LoginMutation, MeDocument, MeQuery, RegisterMutation} from "../generated/graphql";
+import {LoginMutation, LogoutMutation, MeDocument, MeQuery, RegisterMutation} from "../generated/graphql";
 
-function betterUpdateQuery<Result, Query> (
+function betterUpdateQuery<Result, Query>(
     cache: Cache,
     qi: QueryInput,
     result: any,
@@ -25,13 +25,21 @@ const client = createClient({
         cacheExchange({
             updates: {
                 Mutation: {
+                    logout: (_result, _args, cache, _info) => {
+                        betterUpdateQuery<LogoutMutation, MeQuery>(
+                            cache,
+                            {query: MeDocument},
+                            _result,
+                            () => ({me: null}),
+                        )
+                    },
                     login: (_result, _args, cache, _info) => {
                         betterUpdateQuery<LoginMutation, MeQuery>(
                             cache,
                             {query: MeDocument},
                             _result,
                             (result, query) => {
-                                if(result.login.errors) {
+                                if (result.login.errors) {
                                     return query;
                                 } else {
                                     return {
@@ -47,7 +55,7 @@ const client = createClient({
                             {query: MeDocument},
                             _result,
                             (result, query) => {
-                                if(result.register.errors) {
+                                if (result.register.errors) {
                                     return query;
                                 } else {
                                     return {
