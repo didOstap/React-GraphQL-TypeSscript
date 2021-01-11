@@ -1,18 +1,11 @@
-import {Arg, Ctx, Field, InputType, Mutation, ObjectType, Query, Resolver} from "type-graphql";
+import {Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver} from "type-graphql";
 import argon2 from 'argon2';
 
 import {MyContext} from "../types";
 import {User} from "../entities/User";
 import {COOKIE_NAME} from "../constants";
-
-@InputType()
-class UsernamePasswordInput {
-    @Field()
-    username: string
-
-    @Field()
-    password: string
-}
+import {UsernamePasswordInput} from "./UsernamePasswordInput";
+import {validateRegister} from "../utils/validateRegister";
 
 @ObjectType()
 class FieldError {
@@ -38,12 +31,12 @@ export class UserResolver {
     async me(
         @Ctx() ctx: MyContext,
     ) {
-        if(!ctx.req.session.userId) {
+        if (!ctx.req.session.userId) {
             return null
         }
 
         const user = await ctx.em.findOne(User, {id: ctx.req.session.userId});
-        if(!user) {
+        if (!user) {
             return null;
         }
 
@@ -55,43 +48,29 @@ export class UserResolver {
         @Arg('options') options: UsernamePasswordInput,
         @Ctx() ctx: MyContext,
     ): Promise<UserResponse> {
-        if (options.username.length <= 2) {
-            return {
-                errors: [
-                    {
-                        field: 'username',
-                        message: 'length must be greater than 2',
-                    }
-                ]
-            }
-        }
-
-        if (options.password.length <= 2) {
-            return {
-                errors: [
-                    {
-                        field: 'password',
-                        message: 'length must be greater than 2',
-                    }
-                ]
-            }
+        const errors = validateRegister(options);
+        if (errors) {
+            return {errors};
         }
 
         const hashPassword = await argon2.hash(options.password);
         const user = ctx.em.create(User, {
             username: options.username,
+            email: options.email,
             password: hashPassword
         });
 
         try {
             await ctx.em.persistAndFlush(user);
         } catch (err) {
-            if(err.code === '23505') {
+            if (err.code === '23505') {
+                const isEmailError = err.detail.includes('email');
+
                 return {
                     errors: [
                         {
-                            field: 'username',
-                            message: 'username already taken',
+                            field: isEmailError ? 'email' : 'username',
+                            message: `${isEmailError ? 'email' : 'username'} already taken`,
                         }
                     ]
                 }
@@ -105,22 +84,30 @@ export class UserResolver {
 
     @Mutation(() => UserResponse)
     async login(
-        @Arg('options') options: UsernamePasswordInput,
+        @Arg('usernameOrEmail') usernameOrEmail: string,
+        @Arg('password') password: string,
         @Ctx() ctx: MyContext,
     ): Promise<UserResponse> {
-        const user = await ctx.em.findOne(User, {username: options.username});
+        const isEmail = usernameOrEmail.includes('@');
+
+        const user = await ctx.em.findOne(User,
+            isEmail ?
+                {email: usernameOrEmail} :
+                {username: usernameOrEmail}
+        );
+
         if (!user) {
             return {
                 errors: [
                     {
-                        field: 'username',
-                        message: "that username doesn't exist",
+                        field: 'usernameOrEmail',
+                        message: `that ${isEmail ? 'email' : 'username'} doesn't exist`,
                     }
                 ]
             }
         }
 
-        const valid = await argon2.verify(user.password, options.password);
+        const valid = await argon2.verify(user.password, password);
         if (!valid) {
             return {
                 errors: [

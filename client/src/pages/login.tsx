@@ -26,21 +26,21 @@ const Login: React.FC<{}> = () => {
     return (
         <Wrapper variant="small">
             <Formik
-                initialValues={{username: '', password: ''}}
+                initialValues={{usernameOrEmail: '', password: ''}}
                 onSubmit={handleRegister}
             >
                 {({isSubmitting}) => (
                     <Form>
                         <InputField
-                            name="username"
-                            label="username"
-                            placeholder="username"
+                            name="usernameOrEmail"
+                            label="Username or email"
+                            placeholder="Username or email"
                         />
                         <Box mt={4}>
                             <InputField
                                 name="password"
-                                label="password"
-                                placeholder="password"
+                                label="Password"
+                                placeholder="Password"
                                 type="password"
                             />
                         </Box>
