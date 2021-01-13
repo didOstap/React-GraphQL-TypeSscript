@@ -1,12 +1,13 @@
 import {Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver} from "type-graphql";
 import argon2 from 'argon2';
+import {getConnection} from "typeorm";
+import {v4} from "uuid";
 
 import {MyContext} from "../types";
 import {User} from "../entities/User";
 import {COOKIE_NAME, FORGET_PASSWORD_PREFIX} from "../constants";
 import {UsernamePasswordInput} from "./UsernamePasswordInput";
 import {validateRegister} from "../utils/validateRegister";
-import {v4} from "uuid";
 import {sendEmail} from "../utils/sendEmail";
 
 @ObjectType()
@@ -30,19 +31,14 @@ class UserResponse {
 @Resolver()
 export class UserResolver {
     @Query(() => User, {nullable: true})
-    async me(
+    me(
         @Ctx() ctx: MyContext,
     ) {
         if (!ctx.req.session.userId) {
             return null
         }
 
-        const user = await ctx.em.findOne(User, {id: ctx.req.session.userId});
-        if (!user) {
-            return null;
-        }
-
-        return user;
+        return User.findOne(ctx.req.session.userId);
     }
 
     @Mutation(() => UserResponse)
@@ -55,15 +51,22 @@ export class UserResolver {
             return {errors};
         }
 
+        let user;
         const hashPassword = await argon2.hash(options.password);
-        const user = ctx.em.create(User, {
-            username: options.username,
-            email: options.email,
-            password: hashPassword
-        });
-
         try {
-            await ctx.em.persistAndFlush(user);
+            const result = await getConnection()
+                .createQueryBuilder()
+                .insert()
+                .into(User)
+                .values({
+                    username: options.username,
+                    email: options.email,
+                    password: hashPassword
+                })
+                .returning('*')
+                .execute();
+
+            user = result.raw[0];
         } catch (err) {
             if (err.code === '23505') {
                 const isEmailError = err.detail.includes('email');
@@ -90,20 +93,16 @@ export class UserResolver {
         @Arg('password') password: string,
         @Ctx() ctx: MyContext,
     ): Promise<UserResponse> {
-        const isEmail = usernameOrEmail.includes('@');
+        const inputField = usernameOrEmail.includes('@') ? 'email' : 'username';
 
-        const user = await ctx.em.findOne(User,
-            isEmail ?
-                {email: usernameOrEmail} :
-                {username: usernameOrEmail}
-        );
+        const user = await User.findOne({where: {[inputField]: usernameOrEmail}});
 
         if (!user) {
             return {
                 errors: [
                     {
                         field: 'usernameOrEmail',
-                        message: `that ${isEmail ? 'email' : 'username'} doesn't exist`,
+                        message: `that ${inputField} doesn't exist`,
                     }
                 ]
             }
@@ -147,7 +146,7 @@ export class UserResolver {
         @Arg('email') email: string,
         @Ctx() ctx: MyContext,
     ): Promise<boolean> {
-        const user = await ctx.em.findOne(User, {email});
+        const user = await User.findOne({where: {email}});
 
         if (!user) {
             return true;
@@ -200,7 +199,8 @@ export class UserResolver {
             }
         }
 
-        const user = await ctx.em.findOne(User, {id: parseInt(userId)});
+        const userIdNum = parseInt(userId)
+        const user = await User.findOne(userIdNum);
         if (!user) {
             return {
                 errors: [
@@ -212,8 +212,9 @@ export class UserResolver {
             }
         }
 
-        user.password = await argon2.hash(newPassword);
-        await ctx.em.persistAndFlush(user);
+        await User.update({id: userIdNum}, {
+            password: await argon2.hash(newPassword),
+        });
 
         await ctx.redis.del(redisKey);
 
