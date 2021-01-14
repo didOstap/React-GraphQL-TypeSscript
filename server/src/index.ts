@@ -23,7 +23,7 @@ const main = async () => {
         username: 'postgres',
         password: 'postgres',
         logging: true,
-        synchronize: true,
+        synchronize: true, // update DB relate to current entities
         entities: [Post, User],
     });
 
