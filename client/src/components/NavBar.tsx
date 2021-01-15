@@ -46,7 +46,7 @@ const NavBar: React.FC<{}> = () => {
     }
 
     return (
-        <Flex bg="tomato" p={4}>
+        <Flex zIndex={1} position="sticky" top={0} bg="tomato" p={4}>
             <Box ml="auto">
                 {body}
             </Box>
@@ -54,4 +54,4 @@ const NavBar: React.FC<{}> = () => {
     )
 }
 
-export default NavBar;
+export default React.memo(NavBar);
