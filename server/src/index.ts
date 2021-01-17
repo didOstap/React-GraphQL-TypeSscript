@@ -15,9 +15,10 @@ import {__prod__, COOKIE_NAME} from "./constants";
 import {MyContext} from "./types";
 import {Post} from "./entities/Post";
 import {User} from "./entities/User";
+import path from "path";
 
 const main = async () => {
-    await createConnection({
+    const conn = await createConnection({
         type: 'postgres',
         database: 'lireddit2',
         username: 'postgres',
@@ -25,7 +26,10 @@ const main = async () => {
         logging: true,
         synchronize: true, // update DB relate to current entities
         entities: [Post, User],
+        migrations: [path.join(__dirname, './migrations/*')]
     });
+
+    await conn.runMigrations();
 
     const app = express();
 
