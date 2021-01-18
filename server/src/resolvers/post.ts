@@ -54,13 +54,17 @@ export default class PostResolver {
 
         const qb = getConnection()
             .getRepository(Post)
-            .createQueryBuilder("q")
-            .orderBy('"createdAt"', "DESC")
+            .createQueryBuilder("p")
+            .leftJoinAndSelect(
+                "p.creator",
+                "user"
+            )
+            .orderBy('p.createdAt', "DESC")
             .limit(realLimitPlusOne);
 
         if (cursor) {
             // for field with camelcase have to use additional quotes to allow typeorm recognise it
-            qb.where('"createdAt" < :cursor', {
+            qb.where('p.createdAt < :cursor', {
                 cursor: new Date(parseInt(cursor))
             })
         }

@@ -1,4 +1,4 @@
-import {Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver} from "type-graphql";
+import {Arg, Ctx, Field, FieldResolver, Mutation, ObjectType, Query, Resolver, Root} from "type-graphql";
 import argon2 from 'argon2';
 import {getConnection} from "typeorm";
 import {v4} from "uuid";
@@ -28,8 +28,22 @@ class UserResponse {
     user?: User;
 }
 
-@Resolver()
+@Resolver(User)
 export class UserResolver {
+    @FieldResolver(() => String)
+    email(
+        @Root() user: User,
+        @Ctx() ctx: MyContext,
+    ) {
+        if(ctx.req.session.userId === user.id) {
+            // this is the current user and it's ok to show him his email
+            return user.email
+        }
+
+        // current user wants to see someone else email
+        return '';
+    }
+
     @Query(() => User, {nullable: true})
     me(
         @Ctx() ctx: MyContext,
